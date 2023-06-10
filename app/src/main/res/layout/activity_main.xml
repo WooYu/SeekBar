@@ -1,17 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:orientation="vertical"
     tools:context=".MainActivity">
 
+
+    <Button
+        android:id="@+id/btn_mock"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="mock数据" />
+
     <com.autel.seekbar.BatteryBackupRatio
+        android:id="@+id/seekbar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        android:layout_marginHorizontal="25dp"
+        android:background="@android:color/transparent"
+        android:max="10"
+        android:progressDrawable="@android:color/transparent"
+        android:theme="@style/Widget.AppCompat.SeekBar"
+        android:thumb="@drawable/seekbar_thumb_material_anim_font_setting" />
 
-</androidx.constraintlayout.widget.ConstraintLayout>
+
+</LinearLayout>

@@ -5,48 +5,57 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
+import android.graphics.Rect
 import android.graphics.RectF
+import android.text.TextPaint
+import android.text.TextUtils
 import android.util.AttributeSet
-import android.util.Log
 import androidx.appcompat.widget.AppCompatSeekBar
+import kotlin.math.abs
 
 class BatteryBackupRatio : AppCompatSeekBar {
     private val logTag = "tag_hems_widget_BatteryBackupRatio"
 
     /**
-     * 最小值
+     * 刻度描述数据
      */
-    private val minValue = 0
+    var tickMarkTitles = listOf<TickMarkBean>()
 
     /**
-     * 最大值
+     * 初始进度值
      */
-    private val maxValue = 100
+    private var initialProgressValue = 0
+
+    /**
+     * 滑块所处位置
+     */
+    private var positionOfSlider: Int = initialProgressValue
+
+
+    /**
+     * 最小进度值
+     */
+    private var minProgressValue = 0
+
+    /**
+     * 最大进度值
+     */
+    private var maxProgressValue = 100
 
     /**
      * 步长
      */
-    private val stepSize = 5
-
-    /**
-     * 默认值
-     */
-    private var initialValue = 10
-
-    /**
-     * 间隔多少步长展示x轴文案
-     */
-    private val xAxisDescIntervalStep = 4
+    private var stepSize = 1
 
     /**
      * x轴文案字体大小
      */
-    private val textSizeOfXAxisDesc = dp2px(13f)
+    private val textSizeOfXAxisDesc = dp2px(13.0f)
 
     /**
      * 滑块文案字体大小
      */
-    private val textSizeOfSliderDesc = dp2px(17f)
+    private val textSizeOfSliderDesc = dp2px(17.0f)
 
     /**
      * x轴文案颜色
@@ -56,22 +65,18 @@ class BatteryBackupRatio : AppCompatSeekBar {
     /**
      * 滑块文案颜色
      */
-    private val textColorOfSliderDesc = Color.parseColor("#FF2DBD51")
+    private val textColorOfSliderDesc = Color.parseColor("#2DBD51")
 
-    /**
-     * 刻度颜色
-     */
-    private val textColorOfScale = Color.parseColor("#FF34C759")
 
     /**
      * 第一进度条颜色
      */
-    private val firstProgressColor = Color.parseColor("#FF34C759")
+    private val firstProgressColor = Color.parseColor("#E4E4E6")
 
     /**
      * 第二进度跳颜色
      */
-    private val secondProgressColor = Color.parseColor("#FFE4E4E6")
+    private val secondProgressColor = Color.parseColor("#34C759")
 
     /**
      * 进度描述和滑块之间的间距
@@ -81,7 +86,7 @@ class BatteryBackupRatio : AppCompatSeekBar {
     /**
      * 进度条和x轴文案左右偏移
      */
-    private var sizeOfHorizontalIndent = dp2px(11f)
+    private var sizeOfHorizontalIndent = 0f
 
     /**
      * 刻度线间距
@@ -96,22 +101,32 @@ class BatteryBackupRatio : AppCompatSeekBar {
     /**
      * 进度条高度
      */
-    private var heightOfProgressBar = 0f
+    private var heightOfProgressBar: Float = dp2px(4f) * 1.0f
 
     /**
      * 圆角比例
      */
-    private var filletRatio = 0f
+    private var filletRatio: Float = dp2px(2f) * 1.0f
 
     /**
      * 滑块尺寸
      */
-    private var sizeOfSlider = 0f
+    private var sizeOfSlider = dp2px(32f)
 
     /**
-     * 画笔
+     * 第二进度条宽度
      */
-    private val mPaint: Paint = Paint()
+    private var widthOfSecondProcess = 0f
+
+    /**
+     * 进度条的画笔
+     */
+    private val mPaintOfProgressBar: Paint = Paint()
+
+    /**
+     * 画文本的画笔
+     */
+    private val mPaintOfText: Paint = TextPaint(Paint.ANTI_ALIAS_FLAG)
 
     /**
      * 进度条的圆角矩形
@@ -129,9 +144,9 @@ class BatteryBackupRatio : AppCompatSeekBar {
     private val mPath = Path()
 
     /**
-     * 刻度总数
+     * 刻度的数量
      */
-    private var totalNumberOfTicks = 0;
+    private var totalNumberOfTicks = 0
 
 
     constructor(context: Context) : super(context) {
@@ -154,46 +169,41 @@ class BatteryBackupRatio : AppCompatSeekBar {
         val hm = MeasureSpec.getMode(heightMeasureSpec)
         val w = measuredWidth
         var h = measuredHeight
-        Log.d(logTag, "onMeasure() start w = $w , h = $h")
 
-        //计算步长间隔距离
-        totalNumberOfTicks = (maxValue - minValue) / stepSize
-        spaceOfTickMark =
-            (w - paddingLeft - paddingRight - sizeOfHorizontalIndent * 2) * 1.0f / totalNumberOfTicks
-        //刻度线间距和刻度宽度比例 14/4= 3.5
-        widthOfTick = spaceOfTickMark / 3.5f
-        heightOfProgressBar = widthOfTick
-        //滑块尺寸和刻度间距的比例 32/14 = 2.29
-        sizeOfSlider = spaceOfTickMark * 2.29f
-        filletRatio = widthOfTick / 2
+        calculateHorizontalSpace()
 
+        //滑块文案高度+滑块和文案间距+滑块高度+刻度文案高度+上下内边距
+        val maxProgressHeight = sizeOfSlider.coerceAtLeast((heightOfProgressBar * 2.5f).toInt())
         h =
-            (textSizeOfSliderDesc + spaceOfProgressDescAndSlider + textSizeOfXAxisDesc + sizeOfSlider + paddingTop + paddingBottom).toInt()
-        Log.d(
-            logTag,
-            "onMeasure() end : h = $h , totalNumberOfTicks = $totalNumberOfTicks , spaceOfTickMark = $spaceOfTickMark"
+            paddingTop + paddingBottom + textSizeOfSliderDesc + spaceOfProgressDescAndSlider + maxProgressHeight + textSizeOfXAxisDesc
+
+        setMeasuredDimension(
+            MeasureSpec.makeMeasureSpec(w, wm), MeasureSpec.makeMeasureSpec(h, hm)
         )
-        setMeasuredDimension(MeasureSpec.makeMeasureSpec(w, wm), MeasureSpec.makeMeasureSpec(h, hm))
     }
 
     override fun onDraw(canvas: Canvas?) {
-        super.onDraw(canvas)
 
-        //画背景
-        onDrawFirstProgress(canvas)
+        //画进度条背景
+        onDrawProgress(canvas)
 
         //画刻度线和文案
         onDrawTickMarks(canvas)
-        //绘制已过进度、滑块位置和进度文案
+        super.onDraw(canvas)
+
     }
 
     /**
      * 初始化
      */
     private fun init() {
-        mPaint.color = firstProgressColor
-        mPaint.style = Paint.Style.FILL
-        mPaint.isAntiAlias = true
+        mPaintOfProgressBar.color = firstProgressColor
+        mPaintOfProgressBar.style = Paint.Style.FILL
+        mPaintOfProgressBar.isAntiAlias = true
+
+        mPaintOfText.textAlign = Paint.Align.CENTER
+
+        onChangeMaxProgressValue(max + 1)
     }
 
     private fun dp2px(dpValue: Float): Int {
@@ -204,27 +214,33 @@ class BatteryBackupRatio : AppCompatSeekBar {
     /**
      * 绘制进度条
      */
-    private fun onDrawFirstProgress(canvas: Canvas?) {
+    private fun onDrawProgress(canvas: Canvas?) {
         //绘制第一进度条
         mRectFOfProgressBar.left = (paddingLeft + sizeOfHorizontalIndent).toFloat()
-        mRectFOfProgressBar.right = (width - paddingRight - sizeOfHorizontalIndent).toFloat()
-        mRectFOfProgressBar.top =
-            (height - paddingTop - textSizeOfSliderDesc - spaceOfProgressDescAndSlider).toFloat()
-        mRectFOfProgressBar.bottom = mRectFOfProgressBar.top + sizeOfSlider
-        mPaint.color = firstProgressColor
-        mPaint.strokeWidth = heightOfProgressBar
+        mRectFOfProgressBar.right =
+            (measuredWidth - paddingRight - sizeOfHorizontalIndent).toFloat()
+
+        var topOfProgressBar: Float =
+            (paddingTop + spaceOfProgressDescAndSlider + textSizeOfSliderDesc).toFloat()
+        if (sizeOfSlider > heightOfProgressBar) {
+            topOfProgressBar += abs(sizeOfSlider - heightOfProgressBar) / 2
+        }
+
+        mRectFOfProgressBar.top = (measuredHeight - heightOfProgressBar) / 2 - paddingTop
+        mRectFOfProgressBar.bottom = mRectFOfProgressBar.top + heightOfProgressBar
+        mPaintOfProgressBar.color = firstProgressColor
         mPath.reset()
         mPath.addRoundRect(mRectFOfProgressBar, filletRatio, filletRatio, Path.Direction.CW)
-        canvas?.drawPath(mPath, mPaint)
+        canvas?.drawPath(mPath, mPaintOfProgressBar)
 
         //绘制第二进度条
-        val widthOfSecondProgressBar =
-            (mRectFOfProgressBar.right - mRectFOfProgressBar.left) * initialValue / (maxValue - minValue)
-        mRectFOfProgressBar.right = widthOfSecondProgressBar
-        mPaint.color = secondProgressColor
+        widthOfSecondProcess = spaceOfTickMark * positionOfSlider
+
+        mRectFOfProgressBar.right = mRectFOfProgressBar.left + widthOfSecondProcess
+        mPaintOfProgressBar.color = secondProgressColor
         mPath.reset()
         mPath.addRoundRect(mRectFOfProgressBar, filletRatio, filletRatio, Path.Direction.CW)
-        canvas?.drawPath(mPath, mPaint)
+        canvas?.drawPath(mPath, mPaintOfProgressBar)
     }
 
 
@@ -232,24 +248,161 @@ class BatteryBackupRatio : AppCompatSeekBar {
      * 绘制刻度线和文案
      */
     private fun onDrawTickMarks(canvas: Canvas?) {
-        if (totalNumberOfTicks <= 0) {
+        if (tickMarkTitles.isEmpty()) {
             return
         }
-        for (i in 1..totalNumberOfTicks) {
-            //奇数位
-//            val isOdd = (i % 2 == 1)
-//            mRectF.left = (paddingLeft + sizeOfHorizontalIndent).toFloat()
-//            mRectF.right = (width - paddingRight - sizeOfHorizontalIndent).toFloat()
-//            mRectF.top =
-//                (height - paddingTop - textSizeOfSliderDesc - spaceOfProgressDescAndSlider).toFloat()
-//            mRectF.bottom = mRectF.top + sizeOfSlider
-//            mPaint.color = firstProgressColor
-//            mPaint.strokeWidth = heightOfProgressBar
-//            mPath.reset()
-//            mPath.addRoundRect(mRectF, filletRatio, filletRatio, Path.Direction.CW)
-//            canvas?.drawPath(mPath, mPaint)
+
+        for (i in tickMarkTitles.indices) {
+            mRectFOfTickMark.left = mRectFOfProgressBar.left - widthOfTick / 2 + i * spaceOfTickMark
+            mRectFOfTickMark.right = mRectFOfTickMark.left + widthOfTick
+
+            //偶数
+            val isEven = i % 2 == 0
+            //长刻度高度：10/4 短刻度高度：8/2
+            val heightOfTick: Float = if (isEven) {
+                //长刻度
+                2.5f * heightOfProgressBar
+            } else {
+                2f * heightOfProgressBar
+            }
+            mRectFOfTickMark.top =
+                mRectFOfProgressBar.top - (heightOfTick - heightOfProgressBar) / 2
+            mRectFOfTickMark.bottom = mRectFOfTickMark.top + heightOfTick
+            //刻度颜色
+            mPaintOfProgressBar.color = if (i > positionOfSlider) {
+                firstProgressColor
+            } else {
+                secondProgressColor
+            }
+            //刻度圆角:首尾刻度圆角小些 1.5 2
+            val scaleFillet = if (i == 0 || i == (totalNumberOfTicks - 1)) {
+                0.75f * filletRatio
+            } else {
+                filletRatio
+            }
+            mPath.reset()
+            mPath.addRoundRect(mRectFOfTickMark, scaleFillet, scaleFillet, Path.Direction.CW)
+            canvas?.drawPath(mPath, mPaintOfProgressBar)
+
+            //绘制刻度底部文字
+            val tickMarkInfo = tickMarkTitles[i]
+            onDrawTickMarkDesc(canvas, tickMarkInfo, mRectFOfTickMark.left)
+
+            //绘制当前进度
+            if (i == positionOfSlider) {
+                onDrawCurProgressDesc(canvas, tickMarkInfo.desc, mRectFOfTickMark.left)
+            }
         }
 
+    }
+
+    /**
+     * 绘制刻度说明
+     */
+    private fun onDrawTickMarkDesc(
+        canvas: Canvas?, tickMarkInfo: TickMarkBean, leftOfTickMark: Float
+    ) {
+        if (!tickMarkInfo.display) {
+            return
+        }
+        val desc = tickMarkInfo.desc
+        mPaintOfText.textSize = textSizeOfXAxisDesc.toFloat()
+        mPaintOfText.color = textColorOfXAxisDesc
+        mPaintOfText.isFakeBoldText = false
+        val boundsOfTickMarkDesc = Rect()
+        mPaintOfText.getTextBounds(desc, 0, desc.length, boundsOfTickMarkDesc)
+
+        val startX = leftOfTickMark + widthOfTick / 2
+        val baseLineY =
+            measuredHeight - paddingBottom - textSizeOfXAxisDesc + boundsOfTickMarkDesc.height()
+        canvas?.drawText(desc, startX, baseLineY.toFloat(), mPaintOfText)
+    }
+
+
+    /**
+     * 绘制当前进度值
+     */
+    private fun onDrawCurProgressDesc(canvas: Canvas?, desc: String, leftOfTickMark: Float) {
+        mPaintOfText.textSize = textSizeOfSliderDesc.toFloat()
+        mPaintOfText.color = textColorOfSliderDesc
+        mPaintOfText.isFakeBoldText = true
+        val boundsOfTickMarkDesc = Rect()
+        mPaintOfText.getTextBounds(desc, 0, desc.length, boundsOfTickMarkDesc)
+
+        var startX = leftOfTickMark + widthOfTick / 2
+        val baseLineY = paddingTop + boundsOfTickMarkDesc.height()
+
+        //判断是否超过边界
+        val diff = leftOfTickMark + boundsOfTickMarkDesc.width() / 2 - measuredWidth + paddingEnd
+        if (diff > 0) {
+            startX -= diff / 2
+        }
+
+        canvas?.drawText(desc, startX, baseLineY.toFloat(), mPaintOfText)
+    }
+
+    /**
+     * 改变最大值
+     */
+    private fun onChangeMaxProgressValue(value: Int) {
+        maxProgressValue = value
+        totalNumberOfTicks = maxProgressValue
+        stepSize = (maxProgressValue - minProgressValue) / totalNumberOfTicks
+    }
+
+    /**
+     * 计算横向间距
+     */
+    private fun calculateHorizontalSpace() {
+        if (totalNumberOfTicks <= 1 || 0 == measuredWidth) {
+            return
+        }
+        val widthOfProgressWidth =
+            measuredWidth - paddingLeft - paddingRight - sizeOfHorizontalIndent * 2
+        spaceOfTickMark = widthOfProgressWidth * 1.0f / (totalNumberOfTicks - 1)
+        //刻度线间距和刻度宽度比例 14/4= 3.5
+        widthOfTick = spaceOfTickMark / 3.5f
+        filletRatio = widthOfTick / 2
+
+    }
+
+    /**
+     * 初始化刻度描述值
+     */
+    fun initTickMarkData(list: List<TickMarkBean>?) {
+        if (null == list) {
+            return
+        }
+        tickMarkTitles = list
+
+        max = tickMarkTitles.size - 1
+        onChangeMaxProgressValue(tickMarkTitles.size)
+        calculateHorizontalSpace()
+    }
+
+    /**
+     * 设置初始进度
+     */
+    fun setInitialProgressValue(initDesc: String?) {
+        if (TextUtils.isEmpty(initDesc)) {
+            return
+        }
+
+        tickMarkTitles.forEach { element ->
+            if (TextUtils.equals(element.desc, initDesc)) {
+                positionOfSlider = element.position
+                progress = positionOfSlider
+                return
+            }
+        }
+    }
+
+    /**
+     * 更新当前进度
+     */
+    fun updateProgressValue(position: Int) {
+        positionOfSlider = position
+        progress = positionOfSlider
     }
 
 }
