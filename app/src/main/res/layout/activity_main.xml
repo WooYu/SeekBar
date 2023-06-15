@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="@android:color/holo_blue_bright"
     android:orientation="vertical"
     tools:context=".MainActivity">
 
@@ -11,18 +13,23 @@
         android:id="@+id/btn_mock"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="mock数据" />
+        android:text="mock数据"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
 
     <com.autel.seekbar.BatteryBackupRatio
         android:id="@+id/seekbar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginHorizontal="25dp"
-        android:background="@android:color/transparent"
+        android:background="@android:color/holo_orange_dark"
         android:max="10"
+        android:progress="0"
         android:progressDrawable="@android:color/transparent"
         android:theme="@style/Widget.AppCompat.SeekBar"
-        android:thumb="@drawable/seekbar_thumb_material_anim_font_setting" />
+        android:thumb="@drawable/seekbar_thumb_material_anim_font_setting"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/btn_mock" />
 
 
-</LinearLayout>
+</androidx.constraintlayout.widget.ConstraintLayout>

@@ -22,6 +22,7 @@ class MainActivity : AppCompatActivity() {
 
 
     private fun mockTickMarksData() {
+        tickMarks.clear()
         for (i in 0..20) {
             val bean = TickMarkBean(
                 i, (5 * i).toString() + "%", i % 4 == 0
